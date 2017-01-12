@@ -1,3 +1,4 @@
+#
 define monitor::url (
   $tool,
   $url          = 'http://127.0.0.1',
@@ -12,10 +13,12 @@ define monitor::url (
   $useragent    = 'UrlCheck',
   $checksource  = 'remote',
   $options_hash = {},
-  $enable       = true
+  $enable       = true,
+  $ssl          = false
   ) {
 
   $bool_enable=any2bool($enable)
+  $bool_ssl=any2bool($ssl)
 
   $ensure = $bool_enable ? {
     false => 'absent',
@@ -40,28 +43,40 @@ define monitor::url (
     default => $template,
   }
 
+  $real_ssl = $bool_ssl ? {
+    false   => url_parse($url,scheme) ? {
+      'https' => true,
+      default => false
+    },
+    default => $bool_ssl
+  }
+
+  $real_check = $real_ssl ? {
+    true    => $username ? {
+      undef   => 'check_url_ssl',
+      ''      => 'check_url_ssl',
+      default => 'check_url_auth_ssl'
+    },
+    false   => $username ? {
+      undef   => 'check_url',
+      ''      => 'check_url',
+      default => 'check_url_auth'
+    }
+  }
+
   # Needed to create flag todo files seamlessly
   $urlq = regsubst($url , '/' , '-' , 'G')
 
-  if ($tool =~ /munin/) {
-  }
-
-  if ($tool =~ /collectd/) {
-  }
-
-  if ($tool =~ /monit/) {
-  }
-
   $local_check_command = $username ? { # CHECK VIA NRPE STILL DOESN'T WORK WITH & and ? in URLS!
-    undef   => "check_nrpe!check_url!${computed_target}!${port}!${url}!${pattern}!${useragent}!${computed_host}" ,
-    ''      => "check_nrpe!check_url!${computed_target}!${port}!${url}!${pattern}!${useragent}!${computed_host}" ,
-    default => "check_nrpe!check_url_auth!${computed_target}!${port}!${url}!${pattern}!${username}:${password}!${useragent}!${computed_host}" ,
+    undef   => "check_nrpe!${real_check}!${computed_target}!${port}!${url}!${pattern}!${useragent}!${computed_host}" ,
+    ''      => "check_nrpe!${real_check}!${computed_target}!${port}!${url}!${pattern}!${useragent}!${computed_host}" ,
+    default => "check_nrpe!${real_check}!${computed_target}!${port}!${url}!${pattern}!${username}:${password}!${useragent}!${computed_host}" ,
   }
 
   $default_check_command = $username ? {
-    undef   => "check_url!${computed_target}!${port}!${url}!${pattern}!${useragent}" ,
-    ''      => "check_url!${computed_target}!${port}!${url}!${pattern}!${useragent}" ,
-    default => "check_url_auth!${computed_target}!${port}!${url}!${pattern}!${username}:${password}!${useragent}" ,
+    undef   => "${real_check}!${computed_target}!${computed_host}!${port}!${url}!${pattern}!${useragent}" ,
+    ''      => "${real_check}!${computed_target}!${computed_host}!${port}!${url}!${pattern}!${useragent}" ,
+    default => "${real_check}!${computed_target}!${computed_host}!${port}!${url}!${pattern}!${username}:${password}!${useragent}" ,
   }
 
   $check_command = $checksource ? {
@@ -69,7 +84,7 @@ define monitor::url (
     default => $default_check_command
   }
 
-  if ($tool =~ /nagios/) {
+  if ('nagios' in $tool) {
     # Use for Example42 service checks
     # (note: are used custom Nagios and nrpe commands)
     nagios::service { $name:
@@ -80,7 +95,7 @@ define monitor::url (
     }
   }
 
-  if ($tool =~ /icinga/) {
+  if ('icinga' in $tool) {
     icinga::service { $name:
       ensure        => $ensure,
       template      => $real_template,
@@ -100,7 +115,7 @@ define monitor::url (
     default => "check_http -I '${computed_target}' -p '${port}' -u '${url}' -H '${computed_host}' -r '${pattern}' -a ${username}:${password} -A '${useragent}'" ,
   }
 
-  if ($tool =~ /puppi/) {
+  if ('puppi' in $tool) {
     # Use for Example42 puppi checks
     puppi::check { $name:
       enable   => $enable,

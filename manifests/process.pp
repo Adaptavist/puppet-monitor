@@ -1,13 +1,15 @@
+#
 define monitor::process (
   $tool,
-  $process      = $name,
-  $service      = undef,
-  $pidfile      = '',
-  $enable       = true,
-  $argument     = '',
-  $user         = '',
-  $template     = '',
-  $config_hash  = {}
+  $process             = $name,
+  $service             = undef,
+  $service_description = undef,
+  $pidfile             = '',
+  $enable              = true,
+  $argument            = '',
+  $user                = '',
+  $template            = '',
+  $config_hash         = {}
   ) {
 
   $bool_enable=any2bool($enable)
@@ -22,13 +24,7 @@ define monitor::process (
     true  => 'present',
   }
 
-  if ($tool =~ /munin/) {
-  }
-
-  if ($tool =~ /collectd/) {
-  }
-
-  if ($tool =~ /monit/) {
+  if ('monit' in $tool) {
     monit::checkpid { $name:
       pidfile      => $pidfile,
       process      => "${process}${argument}",
@@ -38,7 +34,7 @@ define monitor::process (
     }
   }
 
-  if ($tool =~ /bluepill/) {
+  if ('bluepill' in $tool) {
     bluepill::process { $name:
       pidfile      => $pidfile,
       process      => "${process}${argument}",
@@ -49,7 +45,7 @@ define monitor::process (
     }
   }
 
-  if ($tool =~ /eye/) {
+  if ('eye' in $tool) {
     eye::process { $name:
       pidfile      => $pidfile,
       process      => "${process}${argument}",
@@ -71,19 +67,21 @@ define monitor::process (
     default => $default_check_command,
   }
 
-  if ($tool =~ /nagios/) {
+  if ('nagios' in $tool) {
     nagios::service { $name:
-      ensure        => $ensure,
-      template      => $real_template,
-      check_command => $check_command,
+      ensure              => $ensure,
+      service_description => $service_description,
+      template            => $real_template,
+      check_command       => $check_command,
     }
   }
 
-  if ($tool =~ /icinga/) {
+  if ('icinga' in $tool) {
     icinga::service { $name:
-      ensure        => $ensure,
-      template      => $real_template,
-      check_command => $check_command,
+      ensure              => $ensure,
+      service_description => $service_description,
+      template            => $real_template,
+      check_command       => $check_command,
     }
   }
 
@@ -98,7 +96,7 @@ define monitor::process (
     default => $puppi_default_command,
   }
 
-  if ($tool =~ /puppi/) {
+  if ('puppi' in $tool) {
     puppi::check { $name:
       enable   => $bool_enable,
       hostwide => 'yes',
